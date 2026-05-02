@@ -5,7 +5,7 @@ import {
   Filter, 
   Mail, 
   MessageSquare, 
-  MoreVertical, 
+  Trash2,
   ExternalLink,
   ChevronRight,
   Plus,
@@ -21,15 +21,43 @@ export default function Leads() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<LeadStatus | 'All'>('All');
 
+  const [refresh, setRefresh] = useState(0);
+
   useEffect(() => {
-    // Fetch mock leads
-    fetch('/api/leads/sample')
+    // Fetch real saved leads
+    fetch('/api/leads')
       .then(res => res.json())
       .then(data => {
         setLeads(data);
         setLoading(false);
       });
-  }, []);
+  }, [refresh]);
+
+  const sendOutreach = async (leadId: string, type: 'email' | 'whatsapp') => {
+    try {
+      const response = await fetch('/api/outreach/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId, type, templateId: '1' })
+      });
+      if (response.ok) {
+        alert(`${type.toUpperCase()} sent successfully!`);
+        setRefresh(prev => prev + 1); // Refresh data to show new status
+      }
+    } catch (err) {
+      console.error("Outreach Error:", err);
+    }
+  };
+
+  const deleteLead = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this lead?')) return;
+    try {
+      await fetch(`/api/leads/${id}`, { method: 'DELETE' });
+      setRefresh(prev => prev + 1);
+    } catch (err) {
+      console.error("Delete Error:", err);
+    }
+  };
 
   const filteredLeads = leads.filter(l => {
     const matchesSearch = l.companyName.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -151,15 +179,27 @@ export default function Leads() {
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex items-center justify-end gap-2">
-                       <button className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-white hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)] transition-all" title="Send Email">
+                       <button 
+                         onClick={() => sendOutreach(lead.id, 'email')}
+                         className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-white hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)] transition-all" 
+                         title="Send Email"
+                       >
                          <Mail size={16} />
                        </button>
-                       <button className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-white hover:border-green-400 hover:text-green-400 transition-all" title="Send WhatsApp">
+                       <button 
+                         onClick={() => sendOutreach(lead.id, 'whatsapp')}
+                         className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-white hover:border-green-400 hover:text-green-400 transition-all" 
+                         title="Send WhatsApp"
+                       >
                          <MessageSquare size={16} />
                        </button>
                        <div className="h-4 w-[1px] bg-white/10 mx-1" />
-                       <button className="p-2.5 rounded-xl hover:bg-white/5 text-white/30 hover:text-white transition-all">
-                         <MoreVertical size={16} />
+                       <button 
+                         onClick={() => deleteLead(lead.id)}
+                         className="p-2.5 rounded-xl hover:bg-white/5 text-white/30 hover:text-red-500 transition-all"
+                         title="Delete Lead"
+                       >
+                         <Trash2 size={16} />
                        </button>
                     </div>
                   </td>

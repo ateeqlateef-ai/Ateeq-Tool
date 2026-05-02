@@ -17,8 +17,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: (process.env as any).GEMINI_API_KEY });
-
 interface FinderLead {
   companyName: string;
   city: string;
@@ -30,6 +28,12 @@ interface FinderLead {
   specialization: string;
 }
 
+const getAI = () => {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key || key === 'MY_GEMINI_API_KEY') return null;
+  return new GoogleGenAI({ apiKey: key });
+};
+
 export default function LeadFinder() {
   const [niche, setNiche] = useState('Web Development Agencies');
   const [city, setCity] = useState('New York');
@@ -39,6 +43,11 @@ export default function LeadFinder() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    const aiInstance = getAI();
+    if (!aiInstance) {
+      alert("Please configure your GEMINI_API_KEY in the Secrets panel.");
+      return;
+    }
     setLoading(true);
     setLeads([]);
 
@@ -50,14 +59,14 @@ export default function LeadFinder() {
       Schema:
       - companyName: string
       - city: string
-      - website: string (realistic URL)
-      - email: string (realistic corporate email like info@, hr@, careers@)
-      - phone: string (USA format)
-      - linkedIn: string (realistic URL)
-      - instagram: string (realistic URL)
-      - specialization: string (one of: Web Development, SaaS, Digital Services)`;
+      - website: string
+      - email: string
+      - phone: string
+      - linkedIn: string
+      - instagram: string
+      - specialization: string`;
 
-      const result = await ai.models.generateContent({
+      const response = await aiInstance.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
@@ -82,18 +91,34 @@ export default function LeadFinder() {
         }
       });
 
-      const data = JSON.parse(result.text || "[]");
+      const data = JSON.parse(response.text || "[]");
       setLeads(data);
     } catch (err) {
       console.error("AI Generation Error:", err);
+      alert("AI Search failed. Using local fallback.");
+      // Fallback
+      fetch('/api/leads/sample')
+        .then(res => res.json())
+        .then(data => setLeads(data.slice(0, 5)));
     } finally {
       setLoading(false);
     }
   };
 
-  const saveLead = (lead: FinderLead, index: number) => {
-    // In a real app, this would call an API
-    setSavedIds(prev => new Set(prev).add(`${lead.companyName}-${index}`));
+  const saveLead = async (lead: FinderLead, index: number) => {
+    try {
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lead),
+      });
+      
+      if (response.ok) {
+        setSavedIds(prev => new Set(prev).add(`${lead.companyName}-${index}`));
+      }
+    } catch (err) {
+      console.error("Save Error:", err);
+    }
   };
 
   return (

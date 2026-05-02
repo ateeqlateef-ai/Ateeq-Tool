@@ -80,6 +80,20 @@ const StatCard = ({ title, value, icon: Icon, trend, data: miniData }: any) => (
 );
 
 export default function Dashboard() {
+  const [stats, setStats] = React.useState({
+    totalLeads: 0,
+    emailsSent: 0,
+    whatsappSent: 0,
+    repliesReceived: 0,
+    recentActivity: [] as any[]
+  });
+
+  React.useEffect(() => {
+    fetch('/api/analytics')
+      .then(res => res.json())
+      .then(data => setStats(data));
+  }, []);
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -107,10 +121,10 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="TOTAL LEADS" value="2,845" icon={Users} trend="+12%" data={miniChartData} />
-        <StatCard title="EMAILS SENT" value="1,102" icon={Mail} trend="+8%" data={miniChartData.reverse()} />
-        <StatCard title="WA MESSAGES" value="854" icon={MessageSquare} trend="+24%" data={miniChartData} />
-        <StatCard title="REPLIES" value="142" icon={Reply} trend="+15%" data={miniChartData} />
+        <StatCard title="TOTAL LEADS" value={stats.totalLeads.toLocaleString()} icon={Users} trend="+0%" data={miniChartData} />
+        <StatCard title="EMAILS SENT" value={stats.emailsSent.toLocaleString()} icon={Mail} trend="+0%" data={[...miniChartData].reverse()} />
+        <StatCard title="WA MESSAGES" value={stats.whatsappSent.toLocaleString()} icon={MessageSquare} trend="+0%" data={miniChartData} />
+        <StatCard title="REPLIES" value={stats.repliesReceived.toLocaleString()} icon={Reply} trend="+0%" data={miniChartData} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -251,12 +265,11 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {[
-                { company: 'AgencyX Design', channel: 'EMAIL', subject: 'Collaboration Opportunity', date: '2 Mins Ago', status: 'Delivered', color: 'text-blue-400' },
-                { company: 'SaaS Pulse', channel: 'WHATSAPP', subject: 'Development Proposal', date: '15 Mins Ago', status: 'Read', color: 'text-green-400' },
-                { company: 'Marketing Mavericks', channel: 'EMAIL', subject: 'Scaling Development', date: '1 Hour Ago', status: 'Opened', color: 'text-orange-400' },
-                { company: 'Growth Labs', channel: 'WHATSAPP', subject: 'Intro & Portfolio', date: '3 Hours Ago', status: 'Sent', color: 'text-white/40' },
-              ].map((row, i) => (
+              {stats.recentActivity.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-8 py-10 text-center text-white/20 italic text-xs">No recent activity detected. Start outreach to see logs.</td>
+                </tr>
+              ) : stats.recentActivity.map((row, i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors cursor-pointer group">
                   <td className="px-8 py-5 border-l-2 border-transparent group-hover:border-[var(--color-brand-primary)]">
                     <div className="flex items-center gap-3">
@@ -268,14 +281,14 @@ export default function Dashboard() {
                   </td>
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-2">
-                       {row.channel === 'EMAIL' ? <Mail size={14}/> : <MessageSquare size={14}/>}
-                       <span className="text-[11px] font-mono tracking-tighter uppercase">{row.channel}</span>
+                       {row.type === 'email' ? <Mail size={14}/> : <MessageSquare size={14}/>}
+                       <span className="text-[11px] font-mono tracking-tighter uppercase">{row.type}</span>
                     </div>
                   </td>
-                  <td className="px-8 py-5 text-sm text-white/60 italic">{row.subject}</td>
-                  <td className="px-8 py-5 text-xs font-mono text-white/30">{row.date}</td>
+                  <td className="px-8 py-5 text-sm text-white/60 italic">Campaign Alpha</td>
+                  <td className="px-8 py-5 text-xs font-mono text-white/30">{new Date(row.timestamp).toLocaleTimeString()}</td>
                   <td className="px-8 py-5 text-right">
-                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full bg-white/5 border border-white/5 ${row.color}`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full bg-white/5 border border-white/5 text-green-400`}>
                       {row.status}
                     </span>
                   </td>

@@ -88,7 +88,7 @@ export default function Settings() {
                        <h5 className="font-bold text-sm">{template.name}</h5>
                     </div>
                     <div className="flex gap-2">
-                       <button className="p-2 hover:bg-white/5 rounded-lg text-white/40 hover:text-white transition-all"><monitor size={16}/></button>
+                       <button className="p-2 hover:bg-white/5 rounded-lg text-white/40 hover:text-white transition-all"><Monitor size={16}/></button>
                        <button className="p-2 hover:bg-white/5 rounded-lg text-white/40 hover:text-red-400 transition-all"><Trash2 size={16}/></button>
                     </div>
                   </div>

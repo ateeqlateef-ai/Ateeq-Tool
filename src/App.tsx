@@ -9,9 +9,10 @@ import FollowUps from './pages/FollowUps';
 import Settings from './pages/Settings';
 
 export default function App() {
+  console.log("App mounting...");
   return (
     <Router>
-      <div className="flex min-h-screen bg-[var(--color-brand-bg)] text-white font-sans">
+      <div className="flex min-h-screen bg-[var(--color-brand-bg)] text-white font-sans selection:bg-[var(--color-brand-primary)] selection:text-black">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <Header />
