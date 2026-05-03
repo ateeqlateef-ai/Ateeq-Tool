@@ -6,10 +6,11 @@ import {
   Users, 
   Clock, 
   Settings, 
-  Send,
-  Zap
+  Zap,
+  LogOut
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { auth, signOut } from '../../lib/firebase';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -20,6 +21,12 @@ const navItems = [
 ];
 
 export default function Sidebar() {
+  const handleLogout = async () => {
+    if (confirm('Verify system logout and terminate session?')) {
+      await signOut(auth);
+    }
+  };
+
   return (
     <aside className="w-64 border-r border-[var(--color-brand-line)] flex flex-col h-screen sticky top-0 bg-[var(--color-brand-bg)] hidden md:flex">
       <div className="p-8">
@@ -52,24 +59,27 @@ export default function Sidebar() {
           >
             <item.icon size={20} />
             <span className="text-sm">{item.label}</span>
-            {item.path === '/finder' && (
-              <span className="ml-auto bg-[var(--color-brand-primary)]/20 text-[var(--color-brand-primary)] text-[10px] px-2 py-0.5 rounded-full font-mono font-bold group-[.text-black]:bg-black/10 group-[.text-black]:text-black">
-                NEW
-              </span>
-            )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="p-4">
+      <div className="p-4 space-y-2">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/40 hover:text-red-400 hover:bg-red-400/5 transition-all text-sm group"
+        >
+          <LogOut size={20} className="group-hover:translate-x-1 transition-transform" />
+          <span>Logout</span>
+        </button>
+
         <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             <span className="text-xs font-mono text-white/50 tracking-wider">SYSTEM ACTIVE</span>
           </div>
-          <p className="text-xs text-white/70 leading-relaxed">
-            Ready for outreach. <br/>
-            <span className="text-[var(--color-brand-primary)]">124 leads found</span> today.
+          <p className="text-xs text-white/70 leading-relaxed font-mono">
+            OS READY <br/>
+            <span className="text-[var(--color-brand-primary)] text-[10px]">AUTH_SESSION_VALID</span>
           </p>
         </div>
       </div>
