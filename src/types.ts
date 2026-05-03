@@ -12,8 +12,8 @@ export interface Lead {
   website: string;
   email: string;
   phone: string;
-  linkedIn: string;
-  instagram: string;
+  linkedIn?: string;
+  instagram?: string;
   specialization: string;
   status: LeadStatus;
   lastContacted?: string;

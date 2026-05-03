@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, Cell, PieChart, Pie
+  AreaChart, Area
 } from 'recharts';
 import { 
   TrendingUp, 
@@ -14,6 +14,8 @@ import {
   Rocket
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { leadService } from '../services/leadService';
+import { outreachService } from '../services/outreachService';
 
 const data = [
   { name: 'Mon', emails: 45, whatsapp: 32 },
@@ -88,22 +90,26 @@ export default function Dashboard() {
     recentActivity: [] as any[]
   });
 
-  const [error, setError] = React.useState<string | null>(null);
-
   React.useEffect(() => {
-    fetch('/api/analytics')
-      .then(res => {
-        if (!res.ok) throw new Error('Analytics failed');
-        return res.json();
-      })
-      .then(data => {
-        setStats(data);
-        setError(null);
-      })
-      .catch(err => {
-        console.error(err);
-        setError('Server offline');
-      });
+    const unsubLeads = leadService.subscribeToLeads((leads) => {
+      setStats(prev => ({ ...prev, totalLeads: leads.length }));
+    });
+
+    const unsubLogs = outreachService.subscribeToLogs((logs) => {
+      const emails = logs.filter(l => l.type === 'email').length;
+      const wa = logs.filter(l => l.type === 'whatsapp').length;
+      setStats(prev => ({ 
+        ...prev, 
+        emailsSent: emails, 
+        whatsappSent: wa,
+        recentActivity: logs.slice(0, 5)
+      }));
+    });
+
+    return () => {
+      unsubLeads();
+      unsubLogs();
+    };
   }, []);
 
   return (
@@ -131,7 +137,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="TOTAL LEADS" value={stats.totalLeads.toLocaleString()} icon={Users} trend="+0%" data={miniChartData} />
         <StatCard title="EMAILS SENT" value={stats.emailsSent.toLocaleString()} icon={Mail} trend="+0%" data={[...miniChartData].reverse()} />
@@ -140,7 +145,6 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Chart */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -156,16 +160,6 @@ export default function Dashboard() {
                   <h4 className="text-lg font-bold">Outreach Performance</h4>
                   <p className="text-white/40 text-xs font-mono uppercase">WEEKLY AGGREGATE DATA</p>
                </div>
-            </div>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2">
-                 <div className="w-3 h-3 rounded-full bg-[var(--color-brand-primary)]" />
-                 <span className="text-[10px] text-white/60 font-bold uppercase">EMAILS</span>
-              </div>
-              <div className="flex items-center gap-2">
-                 <div className="w-3 h-3 rounded-full bg-white/20" />
-                 <span className="text-[10px] text-white/60 font-bold uppercase">WHATSAPP</span>
-              </div>
             </div>
           </div>
           
@@ -196,7 +190,6 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Pipeline & Extras */}
         <div className="space-y-6">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -224,11 +217,6 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            <div className="mt-8 pt-6 border-t border-white/5 text-center px-4">
-              <p className="text-[10px] text-white/30 uppercase tracking-[0.2em] font-mono leading-relaxed">
-                PIPELINE VELOCITY IS <span className="text-green-400 font-bold">+4.2%</span> COMPARED TO LAST MONTH
-              </p>
-            </div>
           </motion.div>
 
           <motion.div 
@@ -245,13 +233,11 @@ export default function Dashboard() {
                 <ArrowUpRight size={18} />
               </button>
             </div>
-            {/* Background elements */}
             <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-[var(--color-brand-primary)] opacity-10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
           </motion.div>
         </div>
       </div>
 
-      {/* Recent Activity */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -271,7 +257,6 @@ export default function Dashboard() {
               <tr className="bg-white/5 text-[10px] uppercase tracking-[0.2em] font-bold text-white/30 font-mono">
                 <th className="px-8 py-4">Company</th>
                 <th className="px-8 py-4">Channel</th>
-                <th className="px-8 py-4">Subject</th>
                 <th className="px-8 py-4">Date</th>
                 <th className="px-8 py-4 text-right">Status</th>
               </tr>
@@ -279,14 +264,14 @@ export default function Dashboard() {
             <tbody className="divide-y divide-white/5">
               {stats.recentActivity.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-8 py-10 text-center text-white/20 italic text-xs">No recent activity detected. Start outreach to see logs.</td>
+                  <td colSpan={4} className="px-8 py-10 text-center text-white/20 italic text-xs">No recent activity detected. Start outreach to see logs.</td>
                 </tr>
               ) : stats.recentActivity.map((row, i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors cursor-pointer group">
-                  <td className="px-8 py-5 border-l-2 border-transparent group-hover:border-[var(--color-brand-primary)]">
+                  <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
                        <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold text-white/20">
-                         {row.company[0]}
+                         {row.company ? row.company[0] : '?'}
                        </div>
                        <span className="text-sm font-bold">{row.company}</span>
                     </div>
@@ -297,7 +282,6 @@ export default function Dashboard() {
                        <span className="text-[11px] font-mono tracking-tighter uppercase">{row.type}</span>
                     </div>
                   </td>
-                  <td className="px-8 py-5 text-sm text-white/60 italic">Campaign Alpha</td>
                   <td className="px-8 py-5 text-xs font-mono text-white/30">{new Date(row.timestamp).toLocaleTimeString()}</td>
                   <td className="px-8 py-5 text-right">
                     <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full bg-white/5 border border-white/5 text-green-400`}>

@@ -41,15 +41,6 @@ async function startServer() {
     app.use(cors());
     app.use(express.json({ limit: '10mb' }));
 
-    // In-memory "Database"
-    const db_store = {
-      leads: [] as any[],
-      templates: [
-        { id: '1', name: 'Initial Outreach', type: 'email', subject: 'Partnership with {company_name}', body: 'Hey {name}, I saw your work at {company_name} and thought we could collaborate!' }
-      ],
-      outreachLog: [] as any[]
-    };
-
     // --- API Routes ---
 
     app.get("/api/health", (req, res) => {
@@ -57,95 +48,33 @@ async function startServer() {
       res.json({ status: "ok", message: "Ateeq Tool API is running" });
     });
 
-    app.get("/api/leads", (req, res) => {
-      console.log(`[SERVER] Fetching ${db_store.leads.length} leads`);
-      res.json(db_store.leads);
-    });
-
-    app.post("/api/leads", (req, res) => {
-      const lead = { ...req.body, id: Date.now().toString(), status: 'New', createdAt: new Date().toISOString() };
-      db_store.leads.push(lead);
-      console.log(`[SERVER] Lead added: ${lead.companyName}`);
-      res.status(201).json(lead);
-    });
-
-    app.post("/api/leads/batch", (req, res) => {
-      try {
-        const leads = req.body;
-        if (!Array.isArray(leads)) return res.status(400).json({ error: "Expected an array of leads" });
-
-        const newLeads = leads.map(l => ({
-          id: Math.random().toString(36).substr(2, 9) + Date.now(),
-          status: 'New',
-          companyName: l.companyName || "Unknown Entity",
-          email: l.email || "",
-          phone: l.phone || "",
-          city: l.city || "",
-          website: l.website || "",
-          specialization: l.specialization || "",
-          createdAt: new Date().toISOString()
-        }));
-
-        db_store.leads.push(...newLeads);
-        console.log(`[SERVER] Batch upload: ${newLeads.length} leads`);
-        res.status(201).json({ count: newLeads.length });
-      } catch (err) {
-        console.error("[SERVER] Batch upload error:", err);
-        res.status(500).json({ error: "Batch upload failed" });
-      }
-    });
-
-    app.get("/api/analytics", (req, res) => {
-      res.json({
-        totalLeads: db_store.leads.length,
-        emailsSent: db_store.outreachLog.filter(l => l.type === 'email').length,
-        whatsappSent: db_store.outreachLog.filter(l => l.type === 'whatsapp').length,
-        repliesReceived: Math.floor(db_store.outreachLog.length * 0.15),
-        recentActivity: db_store.outreachLog.slice(-5).reverse()
-      });
-    });
-
-    // Outreach Routes... (keeping existing)
+    // Outreach Routes (Server handles SMTP)
     app.post("/api/outreach/send", async (req, res) => {
-      const { leadId, type, subject, body } = req.body;
-      const lead = db_store.leads.find(l => l.id === leadId);
+      const { leadEmail, subject, body } = req.body;
       
-      if (!lead) return res.status(404).json({ error: "Lead not found" });
-
-      if (type === 'email') {
-        const transporter = getEmailTransporter();
-        if (transporter) {
-          try {
-            await transporter.sendMail({
-              from: `"Ateeq Tool" <${process.env.YAHOO_EMAIL || 'ateeq05@yahoo.com'}>`,
-              to: lead.email,
-              subject: subject || "Business Inquiry",
-              text: body || "Hi there,"
-            });
-          } catch (error) {
-            console.error("[SERVER] Nodemailer Error:", error);
-            return res.status(500).json({ error: "Failed to send email" });
-          }
+      const transporter = getEmailTransporter();
+      if (transporter && leadEmail) {
+        try {
+          console.log(`[SERVER] Sending email to ${leadEmail}`);
+          await transporter.sendMail({
+            from: `"Ateeq Tool" <${process.env.YAHOO_EMAIL || 'ateeq05@yahoo.com'}>`,
+            to: leadEmail,
+            subject: subject || "Business Inquiry",
+            text: body || "Hi there,"
+          });
+          res.json({ message: "Email sent successfully" });
+        } catch (error) {
+          console.error("[SERVER] Nodemailer Error:", error);
+          res.status(500).json({ error: "Failed to send email. Check SMTP credentials." });
+        }
+      } else {
+        if (!transporter) {
+          console.warn("[SERVER] No transporter configured. Simulating success.");
+          res.json({ message: "Email sending simulated (Credentials missing)" });
+        } else {
+          res.status(400).json({ error: "Missing leadEmail" });
         }
       }
-
-      const logEntry = {
-        id: Date.now().toString(),
-        leadId,
-        company: lead.companyName,
-        type,
-        timestamp: new Date().toISOString(),
-        status: 'Sent'
-      };
-      
-      db_store.outreachLog.push(logEntry);
-      
-      if (lead.status === 'New') {
-        lead.status = 'Contacted';
-        lead.lastContacted = new Date().toISOString();
-      }
-
-      res.json({ message: `${type} outreach successful`, log: logEntry });
     });
 
     // Vite middleware

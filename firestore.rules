@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidLead(data) {
+      return data.companyName is string && 
+             data.companyName.size() > 0 && 
+             data.companyName.size() <= 200;
+    }
+
+    // Lead collection
+    match /leads/{leadId} {
+      // For now, allowing all signed in users to manage leads
+      // In a multi-user app, we'd add an ownerId field
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidLead(request.resource.data);
+      allow update: if isSignedIn() && isValidLead(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    // Outreach logs
+    match /outreachLogs/{logId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn();
+    }
+  }
+}

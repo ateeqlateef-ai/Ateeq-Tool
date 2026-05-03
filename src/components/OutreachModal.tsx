@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Send, Mail, MessageSquare, Loader2, CheckCircle2 } from 'lucide-react';
 import { Lead } from '../types';
+import { outreachService } from '../services/outreachService';
 
 interface OutreachModalProps {
   show: boolean;
@@ -26,6 +27,7 @@ export default function OutreachModal({ show, lead, type, onClose, onSuccess }: 
         setBody(`Hey ${lead.companyName.split(' ')[0]}! Just checking in from Ateeq's dev service. Saw your work at ${lead.companyName}. Would love to chat!`);
       }
     }
+    setSent(false); // Reset sent state when lead changes
   }, [lead, type]);
 
   const handleSend = async () => {
@@ -33,36 +35,16 @@ export default function OutreachModal({ show, lead, type, onClose, onSuccess }: 
     setLoading(true);
 
     try {
-      if (type === 'email') {
-        const response = await fetch('/api/outreach/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ leadId: lead.id, type, subject, body }),
-        });
-
-        if (!response.ok) throw new Error('Failed to send email');
-      } else {
-        // For WhatsApp, we open the link with pre-filled text
-        const encodedText = encodeURIComponent(body);
-        const waUrl = `https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}?text=${encodedText}`;
-        window.open(waUrl, '_blank');
-        
-        // Still log it on the server
-        await fetch('/api/outreach/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ leadId: lead.id, type, subject: 'WhatsApp Message', body }),
-        });
-      }
+      await outreachService.sendOutreach(lead, type, subject, body);
 
       setSent(true);
       setTimeout(() => {
         onSuccess();
         onClose();
       }, 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Error sending outreach. Please check console.');
+      alert(`Error sending outreach: ${err.message}`);
     } finally {
       setLoading(false);
     }

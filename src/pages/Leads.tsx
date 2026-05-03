@@ -19,6 +19,7 @@ import { Lead, LeadStatus } from '../types';
 import ExcelUpload from '../components/ExcelUpload';
 import OutreachModal from '../components/OutreachModal';
 import AddLeadModal from '../components/AddLeadModal';
+import { leadService } from '../services/leadService';
 
 export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -26,7 +27,6 @@ export default function Leads() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<LeadStatus | 'All'>('All');
-  const [refresh, setRefresh] = useState(0);
 
   // Modal State
   const [outreachModal, setOutreachModal] = useState<{
@@ -39,29 +39,22 @@ export default function Leads() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('/api/leads')
-      .then(res => {
-        if (!res.ok) throw new Error('API server is not responding');
-        return res.json();
-      })
-      .then(data => {
-        setLeads(data);
-        setError(null);
-      })
-      .catch(err => {
-        console.error(err);
-        setError('Connection to outreach server failed. Ensure the application is started.');
-      })
-      .finally(() => setLoading(false));
-  }, [refresh]);
+    const unsubscribe = leadService.subscribeToLeads((data) => {
+      setLeads(data);
+      setLoading(false);
+      setError(null);
+    });
+    
+    return () => unsubscribe();
+  }, []);
 
   const deleteLead = async (id: string) => {
     if (!confirm('Are you sure you want to delete this lead?')) return;
     try {
-      await fetch(`/api/leads/${id}`, { method: 'DELETE' });
-      setRefresh(prev => prev + 1);
+      await leadService.deleteLead(id);
     } catch (err) {
       console.error("Delete Error:", err);
+      alert("Failed to delete lead from Firestore.");
     }
   };
 
@@ -104,7 +97,7 @@ export default function Leads() {
                 <span className="text-[9px] font-mono text-white/40 uppercase">WA: +923131822218</span>
              </div>
           </div>
-          <ExcelUpload onSuccess={() => setRefresh(prev => prev + 1)} />
+          <ExcelUpload onSuccess={() => {}} />
           <button 
             onClick={() => setAddLeadModalOpen(true)}
             className="flex items-center gap-2 px-5 py-2.5 bg-[var(--color-brand-primary)] text-black rounded-xl text-xs font-bold hover:scale-105 transition-all"
@@ -263,13 +256,13 @@ export default function Leads() {
         lead={outreachModal.lead}
         type={outreachModal.type}
         onClose={() => setOutreachModal({ ...outreachModal, show: false })}
-        onSuccess={() => setRefresh(prev => prev + 1)}
+        onSuccess={() => {}}
       />
 
       <AddLeadModal 
         show={addLeadModalOpen}
         onClose={() => setAddLeadModalOpen(false)}
-        onSuccess={() => setRefresh(prev => prev + 1)}
+        onSuccess={() => {}}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
@@ -7,9 +7,35 @@ import LeadFinder from './pages/LeadFinder';
 import Leads from './pages/Leads';
 import FollowUps from './pages/FollowUps';
 import Settings from './pages/Settings';
+import Login from './components/Login';
+import { auth } from './lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { Loader2 } from 'lucide-react';
 
 export default function App() {
-  console.log("App mounting...");
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[var(--color-brand-bg)] flex items-center justify-center">
+        <Loader2 size={40} className="text-[var(--color-brand-primary)] animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
   return (
     <Router>
       <div className="flex min-h-screen bg-[var(--color-brand-bg)] text-white font-sans selection:bg-[var(--color-brand-primary)] selection:text-black">

@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "Lead": {
+      "title": "Lead",
+      "description": "A potential business prospect",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string", "description": "Name of the business" },
+        "email": { "type": "string", "format": "email", "description": "Primary contact email" },
+        "phone": { "type": "string", "description": "WhatsApp or phone number" },
+        "website": { "type": "string", "description": "Business URL" },
+        "city": { "type": "string", "description": "Location of the business" },
+        "specialization": { "type": "string", "description": "Niche or industry focus" },
+        "status": { "type": "string", "enum": ["New", "Contacted", "Interested", "Responded", "Lost"] },
+        "lastContacted": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyName"]
+    },
+    "OutreachLog": {
+      "title": "Outreach Log",
+      "description": "History of sent messages",
+      "type": "object",
+      "properties": {
+        "leadId": { "type": "string" },
+        "company": { "type": "string" },
+        "type": { "type": "string", "enum": ["email", "whatsapp"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string" }
+      },
+      "required": ["leadId", "type", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Prospect records"
+    },
+    "/outreachLogs/{logId}": {
+      "schema": "OutreachLog",
+      "description": "History of all outreach attempts"
+    }
+  }
+}

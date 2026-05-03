@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Loader2, Globe, Mail, Phone, MapPin, Tag } from 'lucide-react';
+import { leadService } from '../services/leadService';
+import { LeadStatus } from '../types';
 
 interface AddLeadModalProps {
   show: boolean;
@@ -25,13 +27,10 @@ export default function AddLeadModal({ show, onClose, onSuccess }: AddLeadModalP
     
     setLoading(true);
     try {
-      const response = await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+      await leadService.addLead({
+        ...formData,
+        status: LeadStatus.NEW
       });
-
-      if (!response.ok) throw new Error('Failed to add lead');
       
       onSuccess();
       onClose();
@@ -45,7 +44,7 @@ export default function AddLeadModal({ show, onClose, onSuccess }: AddLeadModalP
       });
     } catch (err) {
       console.error(err);
-      alert('Error adding lead. Please ensure the server is running.');
+      alert('Error adding lead to Firestore.');
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,8 @@ import React, { useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { Upload, FileText, Check, Loader2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { leadService } from '../services/leadService';
+import { LeadStatus } from '../types';
 
 interface ExcelUploadProps {
   onSuccess: () => void;
@@ -40,29 +42,24 @@ export default function ExcelUpload({ onSuccess }: ExcelUploadProps) {
             const key = Object.keys(l).find(k => 
               possibleKeys.some(pk => k.toLowerCase().trim() === pk.toLowerCase())
             );
-            return key ? l[key] : "";
+            return key ? String(l[key]) : "";
           };
 
           return {
-            companyName: findKey(['Company Name', 'Company', 'Firm', 'Business']),
+            companyName: findKey(['Company Name', 'Company', 'Firm', 'Business']) || "Unknown Business",
             email: findKey(['Email', 'E-mail', 'Contact Email']),
             phone: findKey(['Phone', 'Mobile', 'WhatsApp', 'Contact Number', 'Phone Number']),
             city: findKey(['City', 'Location', 'Region']),
             website: findKey(['Website', 'URL', 'Link']),
-            specialization: findKey(['Specialization', 'Niche', 'Industry', 'Category', 'Service'])
+            specialization: findKey(['Specialization', 'Niche', 'Industry', 'Category', 'Service']),
+            status: LeadStatus.NEW
           };
         });
 
-        const response = await fetch('/api/leads/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newLeads),
-        });
-
-        if (!response.ok) throw new Error('Failed to upload leads to server');
+        // Use leadService to save to Firestore
+        await leadService.addLeadsBatch(newLeads);
         
-        const result = await response.json();
-        setSuccessCount(result.count);
+        setSuccessCount(newLeads.length);
         onSuccess();
 
         // Clear input
