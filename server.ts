@@ -68,17 +68,18 @@ async function startServer() {
     if (!Array.isArray(leads)) return res.status(400).json({ error: "Expected an array of leads" });
 
     const newLeads = leads.map(l => ({
-      ...l,
       id: Math.random().toString(36).substr(2, 9) + Date.now(),
-      status: l.status || 'New',
-      companyName: l.companyName || l.Company || "Unknown",
-      email: l.email || l.Email || "",
-      phone: l.phone || l.Phone || "",
-      city: l.city || l.City || "",
-      website: l.website || l.Website || ""
+      status: 'New',
+      companyName: l.companyName || "Unknown Entity",
+      email: l.email || "",
+      phone: l.phone || "",
+      city: l.city || "",
+      website: l.website || "",
+      specialization: l.specialization || ""
     }));
 
     db_store.leads.push(...newLeads);
+    console.log(`[DATA] Imported ${newLeads.length} leads from Excel`);
     res.status(201).json({ count: newLeads.length });
   });
 

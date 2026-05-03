@@ -18,28 +18,41 @@ import { motion } from 'motion/react';
 import { Lead, LeadStatus } from '../types';
 import ExcelUpload from '../components/ExcelUpload';
 import OutreachModal from '../components/OutreachModal';
+import AddLeadModal from '../components/AddLeadModal';
 
 export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<LeadStatus | 'All'>('All');
   const [refresh, setRefresh] = useState(0);
 
-  // Outreach Modal State
+  // Modal State
   const [outreachModal, setOutreachModal] = useState<{
     show: boolean;
     lead: Lead | null;
     type: 'email' | 'whatsapp';
   }>({ show: false, lead: null, type: 'email' });
 
+  const [addLeadModalOpen, setAddLeadModalOpen] = useState(false);
+
   useEffect(() => {
+    setLoading(true);
     fetch('/api/leads')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('API server is not responding');
+        return res.json();
+      })
       .then(data => {
         setLeads(data);
-        setLoading(false);
-      });
+        setError(null);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Connection to outreach server failed. Ensure the application is started.');
+      })
+      .finally(() => setLoading(false));
   }, [refresh]);
 
   const deleteLead = async (id: string) => {
@@ -92,12 +105,22 @@ export default function Leads() {
              </div>
           </div>
           <ExcelUpload onSuccess={() => setRefresh(prev => prev + 1)} />
-          <button className="flex items-center gap-2 px-5 py-2.5 bg-[var(--color-brand-primary)] text-black rounded-xl text-xs font-bold hover:scale-105 transition-all">
+          <button 
+            onClick={() => setAddLeadModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[var(--color-brand-primary)] text-black rounded-xl text-xs font-bold hover:scale-105 transition-all"
+          >
             <Plus size={16} />
             ADD MANUAL
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500 text-sm">
+          <AlertCircle size={20} />
+          <p>{error}</p>
+        </div>
+      )}
 
       <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[300px]">
@@ -240,6 +263,12 @@ export default function Leads() {
         lead={outreachModal.lead}
         type={outreachModal.type}
         onClose={() => setOutreachModal({ ...outreachModal, show: false })}
+        onSuccess={() => setRefresh(prev => prev + 1)}
+      />
+
+      <AddLeadModal 
+        show={addLeadModalOpen}
+        onClose={() => setAddLeadModalOpen(false)}
         onSuccess={() => setRefresh(prev => prev + 1)}
       />
     </div>

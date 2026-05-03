@@ -34,11 +34,29 @@ export default function ExcelUpload({ onSuccess }: ExcelUploadProps) {
           throw new Error('The excel sheet is empty');
         }
 
-        // Send to server
+        // Normalize column names
+        const newLeads = jsonData.map((l: any) => {
+          const findKey = (possibleKeys: string[]) => {
+            const key = Object.keys(l).find(k => 
+              possibleKeys.some(pk => k.toLowerCase().trim() === pk.toLowerCase())
+            );
+            return key ? l[key] : "";
+          };
+
+          return {
+            companyName: findKey(['Company Name', 'Company', 'Firm', 'Business']),
+            email: findKey(['Email', 'E-mail', 'Contact Email']),
+            phone: findKey(['Phone', 'Mobile', 'WhatsApp', 'Contact Number', 'Phone Number']),
+            city: findKey(['City', 'Location', 'Region']),
+            website: findKey(['Website', 'URL', 'Link']),
+            specialization: findKey(['Specialization', 'Niche', 'Industry', 'Category', 'Service'])
+          };
+        });
+
         const response = await fetch('/api/leads/batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(jsonData),
+          body: JSON.stringify(newLeads),
         });
 
         if (!response.ok) throw new Error('Failed to upload leads to server');

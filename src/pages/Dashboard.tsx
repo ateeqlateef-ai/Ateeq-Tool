@@ -88,10 +88,22 @@ export default function Dashboard() {
     recentActivity: [] as any[]
   });
 
+  const [error, setError] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     fetch('/api/analytics')
-      .then(res => res.json())
-      .then(data => setStats(data));
+      .then(res => {
+        if (!res.ok) throw new Error('Analytics failed');
+        return res.json();
+      })
+      .then(data => {
+        setStats(data);
+        setError(null);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Server offline');
+      });
   }, []);
 
   return (
