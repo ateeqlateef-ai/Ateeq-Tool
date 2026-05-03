@@ -3,47 +3,85 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Email Transporter (Yahoo Mail)
+const getEmailTransporter = () => {
+  const user = process.env.YAHOO_EMAIL || 'ateeq05@yahoo.com';
+  const pass = process.env.YAHOO_APP_PASSWORD;
+
+  if (!pass) {
+    console.warn("YAHOO_APP_PASSWORD not set. Email sending will be simulated.");
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    host: 'smtp.mail.yahoo.com',
+    port: 465,
+    secure: true, // true for 465, false for other ports
+    auth: {
+      user: user,
+      pass: pass
+    }
+  });
+};
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' }));
 
-  // In-memory "Database" (Persistent during server runtime)
+  // In-memory "Database"
   const db_store = {
     leads: [] as any[],
     templates: [
-      { id: '1', name: 'Initial Outreach', type: 'email', subject: 'Partnership with {company_name}', body: 'Hey, I saw your work...' }
+      { id: '1', name: 'Initial Outreach', type: 'email', subject: 'Partnership with {company_name}', body: 'Hey {name}, I saw your work at {company_name} and thought we could collaborate!' }
     ],
     outreachLog: [] as any[]
   };
 
   // --- API Routes ---
 
-  // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "Ateeq Tool API is running" });
   });
 
-  // Get all saved leads
   app.get("/api/leads", (req, res) => {
     res.json(db_store.leads);
   });
 
-  // Save a new lead
   app.post("/api/leads", (req, res) => {
     const lead = { ...req.body, id: Date.now().toString(), status: 'New' };
     db_store.leads.push(lead);
     res.status(201).json(lead);
   });
 
-  // Update lead status
+  // Batch upload leads (from Excel)
+  app.post("/api/leads/batch", (req, res) => {
+    const leads = req.body;
+    if (!Array.isArray(leads)) return res.status(400).json({ error: "Expected an array of leads" });
+
+    const newLeads = leads.map(l => ({
+      ...l,
+      id: Math.random().toString(36).substr(2, 9) + Date.now(),
+      status: l.status || 'New',
+      companyName: l.companyName || l.Company || "Unknown",
+      email: l.email || l.Email || "",
+      phone: l.phone || l.Phone || "",
+      city: l.city || l.City || "",
+      website: l.website || l.Website || ""
+    }));
+
+    db_store.leads.push(...newLeads);
+    res.status(201).json({ count: newLeads.length });
+  });
+
   app.patch("/api/leads/:id", (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
@@ -57,20 +95,39 @@ async function startServer() {
     }
   });
 
-  // Delete lead
   app.delete("/api/leads/:id", (req, res) => {
     db_store.leads = db_store.leads.filter(l => l.id !== req.params.id);
     res.status(204).send();
   });
 
-  // Handle Outreach Action (Email/WhatsApp)
-  app.post("/api/outreach/send", (req, res) => {
-    const { leadId, type, templateId } = req.body;
+  // Real Outreach Action (Email via Nodemailer)
+  app.post("/api/outreach/send", async (req, res) => {
+    const { leadId, type, subject, body } = req.body;
     const lead = db_store.leads.find(l => l.id === leadId);
     
     if (!lead) return res.status(404).json({ error: "Lead not found" });
 
-    // Simulate sending
+    if (type === 'email') {
+      const transporter = getEmailTransporter();
+      if (transporter) {
+        try {
+          await transporter.sendMail({
+            from: `"Ateeq Tool" <${process.env.YAHOO_EMAIL || 'ateeq05@yahoo.com'}>`,
+            to: lead.email,
+            subject: subject || "Business Inquiry",
+            text: body || "Hi there,"
+          });
+          console.log(`Email sent to ${lead.email}`);
+        } catch (error) {
+          console.error("Nodemailer Error:", error);
+          return res.status(500).json({ error: "Failed to send email. Check your SMTP credentials." });
+        }
+      } else {
+        console.warn("Simulation Mode: No SMTP credentials.");
+      }
+    }
+
+    // Log the activity
     const logEntry = {
       id: Date.now().toString(),
       leadId,
@@ -82,33 +139,28 @@ async function startServer() {
     
     db_store.outreachLog.push(logEntry);
     
-    // Update lead status to Contacted if it was New
     if (lead.status === 'New') {
       lead.status = 'Contacted';
       lead.lastContacted = new Date().toISOString();
     }
 
-    console.log(`[OUTREACH] ${type.toUpperCase()} sent to ${lead.companyName} (${lead.email})`);
-    res.json({ message: `${type} sent successfully`, log: logEntry });
+    res.json({ message: `${type} outreach successful`, log: logEntry });
   });
 
-  // Analytics endpoint
   app.get("/api/analytics", (req, res) => {
     res.json({
       totalLeads: db_store.leads.length,
       emailsSent: db_store.outreachLog.filter(l => l.type === 'email').length,
       whatsappSent: db_store.outreachLog.filter(l => l.type === 'whatsapp').length,
-      repliesReceived: Math.floor(db_store.outreachLog.length * 0.15), // Mocked logic
+      repliesReceived: Math.floor(db_store.outreachLog.length * 0.15),
       recentActivity: db_store.outreachLog.slice(-5).reverse()
     });
   });
 
-  // Sample lead generation (mocking search)
   app.get("/api/leads/sample", (req, res) => {
-    // Return sample data for the "Data Generation Task"
     const samples = Array.from({ length: 50 }, (_, i) => ({
       id: `lead-${i}`,
-      companyName: `TechAgency ${i + 1}`,
+      companyName: `Agency ${i + 1}`,
       city: ["New York", "San Francisco", "Austin", "Seattle", "Chicago"][i % 5],
       website: `https://agency${i + 1}.example.com`,
       email: `contact@agency${i + 1}.example.com`,

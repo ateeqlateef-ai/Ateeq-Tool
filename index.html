@@ -9,7 +9,10 @@
     <div id="root"></div>
     <script>
       window.onerror = function(msg, url, line, col, error) {
-        if (msg.includes('Script error')) return;
+        // Ignore errors from browser extensions
+        if (url && url.startsWith('chrome-extension')) return;
+        if (msg && msg.includes('chrome-extension')) return;
+        if (msg && msg.includes('Script error')) return;
         
         var display = document.getElementById('boot-error');
         if (!display) {
